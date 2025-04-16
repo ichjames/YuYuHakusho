@@ -1,0 +1,3 @@
+# Ignore logs and trained models
+logs/
+trained_models/

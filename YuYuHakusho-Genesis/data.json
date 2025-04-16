@@ -1,0 +1,20 @@
+{
+  "info": {
+    "agent_hp": {
+      "address": 16745592,
+      "type": ">i2"
+    },
+    "agent_sp": {
+      "address": 16745656,
+      "type": ">i2"
+    },
+    "enemy_hp": {
+      "address": 16748664,
+      "type": ">i2"
+    },
+    "enemy_sp": {
+      "address": 16748728,
+      "type": ">i2"
+    }
+  }
+}
