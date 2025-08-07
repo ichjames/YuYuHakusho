@@ -32,7 +32,7 @@ def make_env(game, state):
     return _init
 
 game = "YuYuHakusho-Genesis"
-state = "Level1"
+state = "Level2"
 env = make_env(game, state=state)()
 # model = PPO("CnnPolicy", env)
 

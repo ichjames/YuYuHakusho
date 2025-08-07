@@ -96,7 +96,7 @@ class CustYuYuHakushoWrapper(gym.Wrapper):
             custom_reward = -math.pow(self.full_hp, (curr_enemy_hp + 1) / (self.full_hp + 1))    
             custom_done = True
 
-            print("Trainning: Game is over and player loses.")
+            print(f"Trainning: Game is over and player loses. custom_reward={custom_reward}")
 
         # Game is over and player wins.
         elif curr_enemy_hp < 0:
@@ -109,29 +109,29 @@ class CustYuYuHakushoWrapper(gym.Wrapper):
             custom_reward = math.pow(self.full_hp, (curr_agent_hp + 1) / (self.full_hp + 1)) * self.reward_coeff
             custom_done = True
 
-            print("Trainning: Game is over and player wins.")
+            print(f"Trainning: Game is over and player wins. custom_reward={custom_reward}")
 
         # While the fighting is still going on
         else:
             makeDamageReward = self.reward_coeff * (self.prev_oppont_health - curr_enemy_hp) - (self.prev_player_health - curr_agent_hp)
 
-            # if makeDamageReward != 0:
-            #     if self.COST_SWITCH_LIANXU == False:
-            #         self.COST_SWITCH_LIANXU = True
-            #     # 如果N步之内连续得分，则奖励翻倍
-            #     if self.totalScoreLianXuCount > 0 and self.totalScoreLianXuCount < COST_TOTALSCORELIANXUCOUNT:
-            #         if makeDamageReward < 0:
-            #             makeDamageReward *= 1.14
-            #         else:
-            #             makeDamageReward *= 1.18
-            #         self.totalScoreLianXuCount = 0
-            #         self.COST_SWITCH_LIANXU = False;
-            #         # print("{}次内连续得分，或失分，reward翻倍，{}分".format(COST_TOTALSCORELIANXUCOUNT, makeDamageReward))
+            if makeDamageReward != 0:
+                if self.COST_SWITCH_LIANXU == False:
+                    self.COST_SWITCH_LIANXU = True
+                # 如果N步之内连续得分，则奖励翻倍
+                if self.totalScoreLianXuCount > 0 and self.totalScoreLianXuCount < COST_TOTALSCORELIANXUCOUNT:
+                    if makeDamageReward < 0:
+                        makeDamageReward *= 1.14
+                    else:
+                        makeDamageReward *= 1.18
+                    self.totalScoreLianXuCount = 0
+                    self.COST_SWITCH_LIANXU = False;
+                    print("{}次内连续得分，或失分，reward翻倍，{}分".format(COST_TOTALSCORELIANXUCOUNT, makeDamageReward))
 
-            # # 如果是消耗sp攻击对方，并造成伤害，则奖励翻倍
-            # if makeDamageReward > 0 and curr_agent_sp < self.prev_player_sp:
-            #     makeDamageReward *= 2
-            #     print(f"通过技能攻击，奖励翻倍，{makeDamageReward}分")
+            # # 如果是消耗sp攻击对方，则奖励翻倍
+            if curr_agent_sp < self.prev_player_sp:
+                makeDamageReward = self.reward_coeff * (self.prev_player_sp - curr_agent_sp) * 0.3
+                print(f"通过技能攻击，奖励翻倍，{makeDamageReward}分")
 
 
             self.prev_player_health = curr_agent_hp
@@ -139,18 +139,19 @@ class CustYuYuHakushoWrapper(gym.Wrapper):
             self.prev_player_sp = curr_agent_sp
             self.prev_oppont_sp = curr_enemy_sp
 
-            #把SP值也作为奖励因素，如果我方SP值大于敌方，则奖励，否则惩罚
-            sp_adjust = self.reward_coeff * (curr_agent_sp - self.prev_player_sp) * 0.3
-
+            # 把SP值也作为奖励因素，如果我方SP值大于敌方，则奖励，否则惩罚
+            sp_adjust = self.reward_coeff * (curr_agent_sp - self.prev_player_sp) * 0.15
+            # sp_adjust = 0
+            
             # 什么事情都不做 就连续扣分
-            # doNothingReward = 0 - self.reward_coeff * 0.5
-            doNothingReward = 0
+            doNothingReward = 0 - self.reward_coeff * 0.5
+            # doNothingReward = 0
 
             # 本step最终奖励分值
             custom_reward = makeDamageReward + sp_adjust + doNothingReward
 
-            # if custom_reward != 0:
-            #     print(f'Trainning: custom_reward={custom_reward} =  | sp_adjust={sp_adjust} | doNothingReward={doNothingReward}')
+            if custom_reward != 0:
+                print(f'Trainning: custom_reward={custom_reward} =  | sp_adjust={sp_adjust} | doNothingReward={doNothingReward}')
             custom_done = False
         
         # When reset_round flag is set to False (never reset), the session should always keep going.
