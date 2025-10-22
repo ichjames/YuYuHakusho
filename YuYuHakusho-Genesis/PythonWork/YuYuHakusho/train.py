@@ -10,7 +10,7 @@ from stable_baselines3.common.vec_env import SubprocVecEnv
 from custYuYuHakushoWrapper import CustYuYuHakushoWrapper
 
 Total_Timesteps = 3000000
-NUM_ENV = 1
+NUM_ENV = 16
 LOG_DIR = 'logs'
 os.makedirs(LOG_DIR, exist_ok=True)
 
@@ -47,7 +47,7 @@ def make_env(game, state, seed=0):
         env = retro.make(
             game=game, 
             state=state, 
-            # use_restricted_actions=retro.Actions.DISCRETE, 
+            use_restricted_actions=retro.Actions.FILTERED, 
             obs_type=retro.Observations.IMAGE    
         )
 
@@ -85,15 +85,10 @@ def main():
         env,
         device="cuda", 
         verbose=1,
-        n_steps=1024,
+        n_steps=512,
         batch_size=512,
-        n_epochs=10,
+        n_epochs=4,
         gamma=0.94,
-        gae_lambda=0.95,
-        ent_coef=0.05,        # 鼓励探索
-        vf_coef=0.5,
-        max_grad_norm=0.5,
-        target_kl=0.015,
         learning_rate=lr_schedule,
         clip_range=clip_range_schedule,
         tensorboard_log="logs"
@@ -116,7 +111,7 @@ def main():
 
     # Set up callbacks
     # Note that 1 timesetp = 6 frame
-    checkpoint_interval = int(100000 / NUM_ENV) # checkpoint_interval * num_envs = total_steps_per_checkpoint
+    checkpoint_interval = int(Total_Timesteps / NUM_ENV / 4) # checkpoint_interval * num_envs = total_steps_per_checkpoint
     checkpoint_callback = CheckpointCallback(save_freq=checkpoint_interval, save_path=save_dir, name_prefix="ppo_yuyuhakusho")
 
     # Writing the training logs from stdout to a file

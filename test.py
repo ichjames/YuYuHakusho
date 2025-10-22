@@ -7,7 +7,7 @@ from custYuYuHakushoWrapper import CustYuYuHakushoWrapper
 RESET_ROUND = True  # Whether to reset the round when fight is over. 
 RENDERING = True    # Whether to render the game screen.
 
-MODEL_NAME = r"ppo_yuyuhakusho_final" # Specify the model file to load. Model "ppo_ryu_2500000_steps_updated" is capable of beating the final stage (Bison) of the game.
+MODEL_NAME = r"ppo_yuyuhakusho_final_base" # Specify the model file to load. Model "ppo_ryu_2500000_steps_updated" is capable of beating the final stage (Bison) of the game.
 
 # Model notes:
 # ppo_balloon_final: Just beginning to overfit state, generalizable but not quite capable.
@@ -24,7 +24,7 @@ def make_env(game, state):
         env = retro.make(
             game=game, 
             state=state, 
-            use_restricted_actions=retro.Actions.FILTERED,
+            use_restricted_actions=retro.Actions.MULTI_BINARY,
             obs_type=retro.Observations.IMAGE
         )
         env = CustYuYuHakushoWrapper(env, reset_round=RESET_ROUND, rendering=RENDERING,limit_step=False)
@@ -32,7 +32,7 @@ def make_env(game, state):
     return _init
 
 game = "YuYuHakusho-Genesis"
-state = "Level2"
+state = "Level1"
 env = make_env(game, state=state)()
 # model = PPO("CnnPolicy", env)
 
@@ -45,6 +45,8 @@ done = False
 num_episodes = NUM_EPISODES
 episode_reward_sum = 0
 num_victory = 0
+
+print("动作空间:", env.action_space)
 
 print("\nFighting Begins!\n")
 

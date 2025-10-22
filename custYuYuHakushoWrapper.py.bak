@@ -1,110 +1,41 @@
 # Custom environment wrapper
-import custDiscretizer
-
+from datetime import datetime
 import gym
 import time
 import math
 import numpy as np
 import collections
 
-
-# =======================
-# 1. 游戏与动作定义
-# =======================
-
-# 所有可用按钮（从 info.json 或观察 action_space 得出）
-BUTTONS = ['B', 'A', 'MODE', 'START', 'UP', 'DOWN', 'LEFT', 'RIGHT', 'C', 'Y', 'X', 'Z']
-# 注意：Genesis 手柄有 3 个主攻击键：A, B, C
-
-def get_action(buttons_list):
-    """生成按钮向量"""
-    action = [0] * len(BUTTONS)
-    for btn in buttons_list:
-        if btn in BUTTONS:
-            action[BUTTONS.index(btn)] = 1
-    return action
-
-
-# =======================
-# 2. 定义搓招动作库（每个是一个指令序列）
-# =======================
-
-# 示例搓招（根据实际游戏调整）
-MOVES = {
-    "Nothing":        [],  # 什么都不做
-    "左":         ["LEFT"],
-    "右":        ["RIGHT"],
-    "跳":         ["UP"],
-    "蹲下":       ["DOWN"],
-
-    "A":       ["A"],
-    "B":        ["B"],
-    "C":         ["C"],
-    "X":       ["X"],
-    "Y":        ["T"],
-    "Z":         ["Z"],
-
-    # 搓招示例（↓ ↘ → + A）
-    "下右拳":     ["DOWN", "DOWN+RIGHT", "RIGHT", "A"],
-    "下左拳":  ["DOWN", "DOWN+LEFT", "LEFT", "A"],  
-    "下上拳":      ["DOWN", "UP", "A"], 
-    "下下拳":      ["DOWN", "DOWN", "A"], 
-    "AB":     ["A", "B"],
+# 动作编号对应含义（共 12 个动作）
+ACTION_MEANING = {
+    0: "NO_OP",
+    1: "LEFT",
+    2: "RIGHT",
+    3: "UP",
+    4: "DOWN",
+    5: "LIGHT_PUNCH",      # 轻拳
+    6: "HEAVY_PUNCH",      # 重拳
+    7: "LIGHT_KICK",       # 轻脚
+    8: "HEAVY_KICK",       # 重脚
+    9: "BLOCK",            # 防御
+    10: "SKILL_A",         # 技能A（如灵光弹）
+    11: "SKILL_B"          # 技能B（如灵光波动拳）
 }
 
-# 构建动作映射：index -> move name -> sequence
-MOVE_NAMES = list(MOVES.keys())
-NUM_MOVES = len(MOVE_NAMES)
+ATTACK_ACTIONS = [5, 6, 7, 8, 10, 11]
+MOVE_ACTIONS = [1, 2, 3, 4]
+SKILL_ACTIONS = [10, 11]
+NO_OP = 0
+BLOCK = 9
 
-# print("可用搓招动作:", MOVE_NAMES)
+def normalize(min_num, max_num, num):
+    return (num - min_num) / (max_num - min_num) * 100
 
-
-#执行自定义action搓招
-def cust_StepAction(env,move_frame_skip, action: int,rendering=False):
-    """
-    执行第 `action` 个搓招
-    返回: obs, reward, terminated, truncated, info
-    """
-    move_name = MOVE_NAMES[action]
-    sequence = MOVES[move_name]
-
-    total_reward = 0.0
-    final_info = {}
-    obs = None
-    base_action = get_action([])
-
-    # 执行搓招序列
-    for move in sequence:
-        if move == "":
-            base_action = get_action([])
-        elif '+' in move:
-            base_action = get_action(move.split('+'))
-        else:
-            base_action = get_action([move])
-
-        # 可选：出招后额外“发力”几帧（比如轻按A）
-        # print(f"释放了：{move_name}")
-        # 每个动作持续若干帧
-        for _ in range(move_frame_skip):
-            observation, reward, done, info = env.step(base_action)
-            total_reward += reward
-            final_info.update(info)
-
-            if rendering:
-                env.render()
-                time.sleep(0.01)  # 控制速度便于观察
-
-            if(done):
-                # 可选：在每个动作之间加一点延迟（更像真实搓招）
-                time.sleep(0.05)
-                return observation, total_reward, done, final_info
-    if(obs is None):
-            obs, reward, done, info = env.step(get_action([]))
-    return obs, reward, done, info
+COST_TOTALSCORELIANXUCOUNT = 10
 
 class CustYuYuHakushoWrapper(gym.Wrapper):
 
-    def __init__(self, env, move_frame_skip=6, render_mode=None, reset_round=True, rendering=False,limit_step=True):
+    def __init__(self, env, reset_round=True, rendering=False,limit_step=True):
         super(CustYuYuHakushoWrapper, self).__init__(env)
         self.env = env
 
@@ -113,17 +44,11 @@ class CustYuYuHakushoWrapper(gym.Wrapper):
         self.frame_stack = collections.deque(maxlen=self.num_frames)
         self.num_step_frames = 6
         self.reward_coeff = 3.0
-
-        # 自定义动作空间：选择一个招式（离散）
-        self.action_space = gym.spaces.Discrete(NUM_MOVES)
-        self.move_frame_skip = move_frame_skip  # 每个搓招方向/按键持续帧数
-
+        self.action_space = gym.spaces.Discrete(12)
         # 注意,这里的shape为 112,120,3 
         # 怎么得出此值的？ 因为这个游戏的画面输出是 224*320，我们的目的是隔行取值（用于减小运算的图像数据量）。所以输出的图像为 112*160
         # 这里的shape的值，直接影响到reset时，返回np.stack()的维度。需要特别注意
         self.observation_space = gym.spaces.Box(low=0, high=255, shape=(112, 160, 3), dtype=np.uint8)
-        # 用于存储待执行的多帧动作
-        self.special_move_buffer = None  
 
         self.reset_round = reset_round
         self.rendering = rendering
@@ -159,12 +84,48 @@ class CustYuYuHakushoWrapper(gym.Wrapper):
         # 这里是将3帧（隔行取值后的图像）图像堆叠成为一张完整的RGB图像，用于后续的计算。
         return np.stack([self.frame_stack[i * 3 + 2][:, :, i] for i in range(3)], axis=-1)
 
-    def step(self, action):
+    def _action_to_retro_array(self, action):
+        # 假设你有 12 个按钮：A, B, C, X, Y, Z, Up, Down, Left, Right, Start, Mode
+        num_buttons = self.env.num_buttons  # 通常是 12
+        buttons = [0] * num_buttons
         
+        # 定义你的动作映射
+        if action == 0:
+            pass  # NOOP
+        elif action == 1:
+            buttons[8] = 1  # LEFT  → 左 (index 8)
+        elif action == 2:
+            buttons[9] = 1  # RIGHT → 右 (index 9)
+        elif action == 3:
+            buttons[6] = 1  # UP
+        elif action == 4:
+            buttons[7] = 1  # DOWN
+        elif action == 5:
+            buttons[0] = 1  # LIGHT_PUNCH → A
+        elif action == 6:
+            buttons[1] = 1  # HEAVY_PUNCH → B
+        elif action == 7:
+            buttons[2] = 1  # LIGHT_KICK → C
+        elif action == 8:
+            buttons[3] = 1  # HEAVY_KICK → X
+        elif action == 9:
+            buttons[7] = 1  # BLOCK → DOWN
+        elif action == 10:
+            # 技能1：↓↘→ + A（简化为 → + A）
+            buttons[9] = 1
+            buttons[0] = 1
+        elif action == 11:
+            # 技能2：↓↙← + B
+            buttons[8] = 1
+            buttons[1] = 1
+        
+        return buttons
+    def step(self, action):
+          
+        # 把你的动作编号（如 5）转成 retro 所需的按钮数组
+        retro_action = self._action_to_retro_array(action)
         # 执行原始环境的步骤
-        observation, reward, done, info = cust_StepAction(self.env,self.move_frame_skip,action,self.rendering)
-
-
+        observation, reward, done, info = self.env.step(retro_action)
         self.frame_stack.append(observation[::2, ::2, :])
 
         custom_done = False
@@ -175,14 +136,14 @@ class CustYuYuHakushoWrapper(gym.Wrapper):
             self.env.render()
             time.sleep(0.005)
         
-        # for _ in range(self.num_step_frames - 1):
-        #     # Keep the button pressed for (num_step_frames - 1) frames.
-        #     obs, _reward, _done, info = self.env.step(action)
-        #     self.frame_stack.append(obs[::2, ::2, :])
-        #     if self.rendering:
-        #         self.env.render()
-        #         time.sleep(0.005)
-    
+        for _ in range(self.num_step_frames - 1):
+            # Keep the button pressed for (num_step_frames - 1) frames.
+            obs, _reward, _done, info = self.env.step(retro_action)
+            self.frame_stack.append(obs[::2, ::2, :])
+            if self.rendering:
+                self.env.render()
+                time.sleep(0.005)
+      
 
         # 敌我双方的HP和SP
         curr_agent_hp = info['agent_hp']
@@ -246,6 +207,13 @@ class CustYuYuHakushoWrapper(gym.Wrapper):
         # When reset_round flag is set to False (never reset), the session should always keep going.
         if not self.reset_round:
             custom_done = False
+
+        if self.COST_SWITCH_LIANXU == True:
+            self.totalScoreLianXuCount += 1
+
+        if self.totalScoreLianXuCount >= COST_TOTALSCORELIANXUCOUNT:
+            self.totalScoreLianXuCount = 0
+            self.COST_SWITCH_LIANXU = False;
         
         # Max reward is 6 * full_hp = 1054 (damage * 3 + winning_reward * 3) norm_coefficient = 0.001
         return self._stack_observation(), custom_reward, custom_done, info # reward normalization
