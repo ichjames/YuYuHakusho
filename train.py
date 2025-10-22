@@ -9,8 +9,8 @@ from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from custYuYuHakushoWrapper import CustYuYuHakushoWrapper
 
-Total_Timesteps = 3000000
-NUM_ENV = 1
+Total_Timesteps = 1000000
+NUM_ENV = 8
 LOG_DIR = 'logs'
 os.makedirs(LOG_DIR, exist_ok=True)
 
