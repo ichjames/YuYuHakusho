@@ -19,7 +19,7 @@ YuYuHakusho/
 
 ### 必需依赖
 
-- Python 3.7+
+- Python 3.8.20
 - OpenAI Retro
 - Stable Baselines3
 - PyTorch (带CUDA支持更佳)
